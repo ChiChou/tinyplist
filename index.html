@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>plist parser and serializer in browser</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+                font-family: sans-serif;
+            }
+            html,
+            body {
+                height: 100%;
+            }
+            body {
+                display: flex;
+                flex-direction: column;
+                padding: 16px;
+                gap: 8px;
+                min-height: 0;
+            }
+            h1 {
+                font-size: 18px;
+                font-weight: normal;
+                text-align: center;
+            }
+            p {
+                margin-top: 4px;
+                text-align: center;
+            }
+            header {
+                margin-bottom: 8px;
+            }
+            main {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                min-height: 0;
+            }
+            .panels {
+                flex: 1;
+                display: flex;
+                gap: 8px;
+                min-height: 0;
+            }
+            #input {
+                flex: 1;
+                min-height: 0;
+                resize: none;
+                padding: 8px;
+                font-family: monospace;
+            }
+            .toolbar {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .toolbar button {
+                width: 140px;
+                padding: 8px;
+                cursor: pointer;
+                font-size: 16px;
+            }
+            .toolbar .convert-group {
+                display: flex;
+                gap: 8px;
+                margin: 0 auto;
+            }
+            #output {
+                flex: 1;
+                min-height: 0;
+                resize: none;
+                padding: 8px;
+                font-family: monospace;
+            }
+            @media (max-width: 600px) {
+                html,
+                body {
+                    height: auto;
+                }
+                .panels {
+                    flex-direction: column;
+                }
+                #input,
+                #output {
+                    min-height: 40vh;
+                }
+                .toolbar {
+                    flex-wrap: wrap;
+                    justify-content: center;
+                }
+                .toolbar > button {
+                    order: 1;
+                }
+                .toolbar .convert-group {
+                    order: 0;
+                    width: 100%;
+                    justify-content: center;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <header>
+            <h1>XML property list parser in modern browser</h1>
+        </header>
+        <main>
+            <div class="toolbar">
+                <button id="paste-xml">Paste XML</button>
+                <div class="convert-group">
+                    <button id="parse">plist &rarr; JSON</button>
+                    <button id="serialize">JSON &rarr; plist</button>
+                </div>
+                <button id="paste-json">Paste JSON</button>
+            </div>
+            <div class="panels">
+                <textarea id="input" placeholder="Paste plist XML here...">
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Name</key>
+    <string>John Doe</string>
+    <key>Age</key>
+    <integer>30</integer>
+    <key>IsEmployed</key>
+    <true/>
+</dict>
+</plist>
+            </textarea
+                >
+                <textarea id="output" placeholder="JSON output..."></textarea>
+            </div>
+        </main>
+        <footer>
+            <p>
+                A simple XML property list parser and serializer implemented in
+                modern browser. It supports both parsing and serializing plist
+                XML to and from JSON.
+                <a href="https://github.com/chichou/tinyplist" target="_blank"
+                    >Source code</a
+                >
+            </p>
+            <p>
+                Note: you will lost indentation when converting from JSON to
+                plist XML, because it's not supported by browser
+                <code>XMLSerializer</code>
+                api.
+            </p>
+            <p>
+                References:
+                <a
+                    href="https://developer.mozilla.org/en-US/docs/Web/API/DOMParser"
+                    target="_blank"
+                    >DOMParser</a
+                >,
+                <a
+                    href="https://developer.mozilla.org/en-US/docs/Web/API/XMLSerializer"
+                    target="_blank"
+                    >XMLSerializer</a
+                >
+            </p>
+        </footer>
+        <script type="module">
+            import { parse } from "./tinyplist/parser.mjs";
+            import { serialize } from "./tinyplist/serializer.mjs";
+
+            const INPUT_KEY = "xml";
+            const OUT_KEY = "json";
+
+            if (localStorage.getItem(INPUT_KEY)) {
+                document.getElementById("input").value =
+                    localStorage.getItem(INPUT_KEY);
+            }
+            if (localStorage.getItem(OUT_KEY)) {
+                document.getElementById("output").value =
+                    localStorage.getItem(OUT_KEY);
+            }
+
+            function doParse() {
+                const xml = document.getElementById("input").value;
+                const out = document.getElementById("output");
+                try {
+                    const result = parse(xml);
+                    out.value = JSON.stringify(result, null, 2);
+                } catch (e) {
+                    out.value = e.message;
+                }
+
+                localStorage.setItem(INPUT_KEY, xml);
+                localStorage.setItem(OUT_KEY, out.value);
+            }
+
+            function doSerialize() {
+                const json = document.getElementById("output").value;
+                const input = document.getElementById("input");
+                try {
+                    const obj = JSON.parse(json);
+                    input.value = serialize(obj);
+                    localStorage.setItem(INPUT_KEY, input.value);
+                } catch (e) {
+                    input.value = e.message;
+                }
+            }
+
+            document
+                .getElementById("paste-xml")
+                .addEventListener("click", async () => {
+                    document.getElementById("input").value =
+                        await navigator.clipboard.readText();
+                    doParse();
+                });
+
+            document
+                .getElementById("paste-json")
+                .addEventListener("click", async () => {
+                    document.getElementById("output").value =
+                        await navigator.clipboard.readText();
+                    doSerialize();
+                });
+
+            document.getElementById("parse").addEventListener("click", doParse);
+            document
+                .getElementById("serialize")
+                .addEventListener("click", doSerialize);
+        </script>
+    </body>
+</html>
